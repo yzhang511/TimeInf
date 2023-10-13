@@ -2,14 +2,13 @@ import numpy as np
 
 def split_time_series(series, block_length):
     "Split a univariate time series into consecutive time blocks."
-    xs, ys, block_idxs = [], [], []
+    xs, ys = [], []
     for i in range(len(series) - block_length):
         x = series[i:i+block_length]
         y = series[i+block_length]
         xs.append(x)
         ys.append(y)
-        block_idxs.append(np.arange(i, i+block_length))
-    return np.array(xs), np.array(ys), np.array(block_idxs)
+    return np.array(xs), np.array(ys)
 
 
 def match_train_time_block_index(train_series, train_block):

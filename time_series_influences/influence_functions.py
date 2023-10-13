@@ -29,7 +29,7 @@ def compute_loo_linear_approx(train_idx, val_idx, X_train, Y_train, X_val, Y_val
     No model retraining is needed.
     """
     x, y = X_train[train_idx], Y_train[train_idx]
-    x_val, y_val = X_val[test_idx], Y_val[test_idx]
+    x_val, y_val = X_val[val_idx], Y_val[val_idx]
     loo = empirical_IF_linear_approx(x, y, x_val, y_val, X_train, params)
     return loo
 
