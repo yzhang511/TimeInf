@@ -5,12 +5,12 @@ def empirical_IC_linear_approx(x, y, X, beta, b):
     Compute empirical influence curves for model parameters with linear approximation.
     No leave-one-out retraining is needed. 
     """
-    eic = (1/len(X)) * np.linalg.inv(X.T @ X) @ (x * (y - x.T @ beta + b))
+    eic = (1/len(X)) * np.linalg.inv(X.T @ X) @ (x * (y - x.T @ beta - b))
     return eic
 
 def compute_loss_grad(x_val, y_val, beta, b):
     "Compute gradient of the validation loss."
-    loss_grad = x_val * (y_val - x_val.T @ beta + b)
+    loss_grad = x_val * (y_val - x_val.T @ beta - b)
     return loss_grad
 
 def empirical_IF_linear_approx(x, y, x_val, y_val, X, params):
