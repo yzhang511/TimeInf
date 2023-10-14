@@ -5,7 +5,7 @@ def empirical_IC_linear_approx(x, y, X, beta, b, inv_hess):
     Compute empirical influence curves for model parameters with linear approximation.
     No leave-one-out retraining is needed. 
     """
-    eic = (1/len(X)) * inv_hess @ (x * (y - x.T @ beta - b))
+    eic = - (1/len(X)) * inv_hess @ (x * (y - x.T @ beta - b))
     return eic
 
 def compute_loss_grad(x_val, y_val, beta, b):
