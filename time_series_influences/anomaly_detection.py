@@ -4,9 +4,12 @@ from sklearn.metrics import precision_score, recall_score, f1_score
 def min_max_scaler(x):
     return (x - x.min()) / (x.max() - x.min())
 
-def scale_influence_functions(influences):
+def scale_influence_functions(influences, block_length):
     "Scale computed influence functions for anomaly detection."
     scaled_influences = min_max_scaler(influences)
+    # TO DO: initial time points are contained in fewer time blocks,
+    #        so that their influences are unreliable 
+    scaled_influences[:block_length] = np.nanmean(scaled_influences)
     return np.abs(scaled_influences - np.nanmean(scaled_influences))
 
 def eval_anomaly_detector(ground_truth, model_pred, verbose=True):
