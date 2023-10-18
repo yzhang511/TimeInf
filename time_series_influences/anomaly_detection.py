@@ -46,4 +46,24 @@ def eval_anomaly_detector(ground_truth, model_pred, verbose=True, adjust_detecti
     if verbose:
         print(f"precision: {prec:.3f} recall: {rec:.3f} F1: {f1:.3f}")
     return prec, rec, f1
+
+
+def eval_anomaly_detector_all_thresholds(ground_truth, anomaly_scores, verbose=True, adjust_detection=False):
+
+    contam_ratio = np.linspace(0.001, 0.1, 100)
+
+    best_prec, best_rec, best_f1 = 0., 0., 0.
+    for ratio in contam_ratio:
+        detected_outliers = anomaly_scores > np.quantile(anomaly_scores, 1-ratio)
+        prec, rec, f1 = eval_anomaly_detector(
+            ground_truth, detected_outliers, verbose=False, adjust_detection=adjust_detection
+        )
+        if f1 > best_f1:
+            best_prec = prec
+            best_rec = rec
+            best_f1 = f1
+    if verbose:
+        print(f"precision: {best_prec:.3f} recall: {best_rec:.3f} F1: {best_f1:.3f}")
+    return best_prec, best_rec, best_f1
+
     
