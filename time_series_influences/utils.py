@@ -13,7 +13,11 @@ def split_time_series(series, block_length):
 
 def match_train_time_block_index(train_series, train_block):
     "Search for time blocks that contain the target time point in the series."
-    _, block_length = train_block.shape
+    if len(train_block.shape) == 2:
+        _, block_length = train_block.shape
+    else:
+        _, block_length, _ = train_block.shape
+    
     train_block_idxs = []
     for i in range(len(train_block)):
         if i < block_length:
