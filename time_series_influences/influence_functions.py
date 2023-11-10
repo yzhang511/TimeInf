@@ -1,5 +1,8 @@
 import numpy as np
 
+# Note: time series feature attribution is still under development, so plz
+#       do not use `remove_cov_idxs` for auxiliary covariates yet. 
+
 def empirical_IC_linear_approx(x, y, X, beta, b, inv_hess, remove_cov_idxs=[]):
     """
     Compute empirical influence curves for model parameters with linear approximation.

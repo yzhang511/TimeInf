@@ -1,5 +1,5 @@
 import numpy as np
-from sklearn.metrics import precision_recall_fscore_support
+from sklearn.metrics import precision_recall_fscore_support, roc_auc_score
 
 def min_max_scaler(x):
     return (x - x.min()) / (x.max() - x.min())
@@ -12,7 +12,7 @@ def scale_influence_functions(influences, block_length):
     scaled_influences[:block_length] = np.nanmean(scaled_influences)
     return np.abs(scaled_influences - np.nanmean(scaled_influences))
 
-def eval_anomaly_detector(ground_truth, model_pred, verbose=True, adjust_detection=False):
+def eval_anomaly_detector(ground_truth, model_pred, anomaly_scores, verbose=True, adjust_detection=False):
     "Evaluate time series anomaly detectors."
     
     if adjust_detection:
@@ -42,10 +42,11 @@ def eval_anomaly_detector(ground_truth, model_pred, verbose=True, adjust_detecti
     prec, rec, f1, support = precision_recall_fscore_support(
         ground_truth, model_pred, average='binary'
     )
+    auc = roc_auc_score(ground_truth, anomaly_scores)
         
     if verbose:
-        print(f"precision: {prec:.3f} recall: {rec:.3f} F1: {f1:.3f}")
-    return prec, rec, f1
+        print(f"precision: {prec:.3f} recall: {rec:.3f} F1: {f1:.3f} AUC: {auc:.3f}")
+    return prec, rec, f1, auc
 
 
 def eval_anomaly_detector_all_thresholds(ground_truth, anomaly_scores, verbose=True, adjust_detection=False):
@@ -55,8 +56,8 @@ def eval_anomaly_detector_all_thresholds(ground_truth, anomaly_scores, verbose=T
     best_prec, best_rec, best_f1 = 0., 0., 0.
     for ratio in contam_ratio:
         detected_outliers = anomaly_scores > np.quantile(anomaly_scores, 1-ratio)
-        prec, rec, f1 = eval_anomaly_detector(
-            ground_truth, detected_outliers, verbose=False, adjust_detection=adjust_detection
+        prec, rec, f1, _ = eval_anomaly_detector(
+            ground_truth, detected_outliers, anomaly_scores, verbose=False, adjust_detection=adjust_detection
         )
         if f1 > best_f1:
             best_prec = prec
