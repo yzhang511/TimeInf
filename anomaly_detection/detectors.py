@@ -2,7 +2,7 @@ from time_series_influences.utils import split_time_series, match_train_time_blo
 from time_series_influences.influence_functions import compute_loo_linear_approx
 from time_series_influences.anomaly_detection import scale_influence_functions, eval_anomaly_detector, eval_anomaly_detector_all_thresholds
 from sklearn.linear_model import LinearRegression, Ridge
-# import periodicity_detection as pyd
+import periodicity_detection as pyd
 import matplotlib.pyplot as plt
 from tqdm import tqdm
 from torch.backends import cudnn
