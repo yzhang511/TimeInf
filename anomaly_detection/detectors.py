@@ -2,13 +2,13 @@ from time_series_influences.utils import split_time_series, match_train_time_blo
 from time_series_influences.influence_functions import compute_loo_linear_approx
 from time_series_influences.anomaly_detection import scale_influence_functions, eval_anomaly_detector, eval_anomaly_detector_all_thresholds
 from sklearn.linear_model import LinearRegression, Ridge
-# import periodicity_detection as pyd
+import periodicity_detection as pyd
 import matplotlib.pyplot as plt
 from tqdm import tqdm
 from torch.backends import cudnn
 import os
 import numpy as np
-from ..Anomaly_Transformer.solver import Solver
+from Anomaly_Transformer.solver import Solver
 
 def str2bool(v):
     return v.lower() in ('true')
@@ -21,7 +21,7 @@ class BaseDetector(object):
     def calculate_anomaly_scores(self, *args):
         pass
 
-    def evaluation(self, ground_truth, anomaly_scores, anomaly_ratio):
+    def evaluate(self, ground_truth, anomaly_scores, anomaly_ratio):
         detected_outliers = anomaly_scores > np.quantile(anomaly_scores, 1-anomaly_ratio)
         
         print("eval w/o point adjustment:")
@@ -30,6 +30,8 @@ class BaseDetector(object):
         prec_adj, rec_adj, f1_adj, _ = eval_anomaly_detector(ground_truth[:len(detected_outliers)], detected_outliers, anomaly_scores, adjust_detection=True)
 
         _, _, best_f1 = eval_anomaly_detector_all_thresholds(ground_truth[:len(detected_outliers)], anomaly_scores, adjust_detection=False, verbose=False)
+
+        return prec, rec, f1, auc, prec_adj, rec_adj, f1_adj,  best_f1
 
 class LSTMDetector(BaseDetector):
     def __init__(self):
@@ -51,8 +53,7 @@ class InfluenceFunctionDetector(BaseDetector):
         super().__init__()
         self.block_length = config.win_size
 
-    def calculate_anomaly_scores(self, channel_id):
-        ts = ...
+    def calculate_anomaly_scores(self, ts, channel_id):
         print(f"block length is {self.block_length} time points.")
         X_train, Y_train = split_time_series(ts, block_length=self.block_length)
         matched_block_idxs = match_train_time_block_index(ts, X_train)
@@ -67,13 +68,13 @@ class InfluenceFunctionDetector(BaseDetector):
         time_block_loos = []
         for i in tqdm(range(len(X_train)), total=len(X_train), desc="Compute LOO"):
             time_block_loos.append(compute_loo_linear_approx(i, i, X_train, Y_train, X_train, Y_train, params))
-            time_block_loos = np.array(time_block_loos)
+        time_block_loos = np.array(time_block_loos)
         
         # compute IF for each time point
         time_point_loos = []
         for i in range(len(matched_block_idxs)):
             time_point_loos.append((time_block_loos[matched_block_idxs[i]]).mean())
-            time_point_loos = np.array(time_point_loos)
+        time_point_loos = np.array(time_point_loos)
         
         anomaly_scores = scale_influence_functions(time_point_loos, self.block_length)
         return anomaly_scores
@@ -93,7 +94,7 @@ class AnomalyTransformerDetector(BaseDetector):
            self.detector.train()
 
 
-    def calculate_anomaly_scores(self, channel_ids):
-        anomaly_scores = self.detector.test(channel_ids)
+    def calculate_anomaly_scores(self, ts, channel_id):
+        anomaly_scores = self.detector.test(channel_id)
         return anomaly_scores
         
