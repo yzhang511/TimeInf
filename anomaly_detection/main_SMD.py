@@ -8,6 +8,7 @@ import detectors
 from os import listdir
 from os.path import isfile, join
 import os
+import time
 import argparse
 
 def parse_int_list(s):
@@ -34,11 +35,15 @@ if __name__ == '__main__':
     parser.add_argument('--data_path', type=str, default='../data_processed/SMD')
     parser.add_argument('--model_save_path', type=str, default='../Anomaly_Transformer/checkpoints')
     parser.add_argument('--result_path', type=str, default='./results/')
-    parser.add_argument('--anormly_ratio', type=float, default=4.00)
+    parser.add_argument('--anomaly_ratio', type=float, default=4.00)
+    parser.add_argument('--seed', type=int, default=42)
     parser.add_argument('--dimensions', type=parse_int_list, default = None,
                         help='A comma-separated list of dimensions (e.g., "1,2,3")')
     parser.add_argument('--detector_type', type=str, required=True, default='InfluenceFunctionDetector',
                     help='Type of the detector to use')
+    parser.add_argument('--lstm_n_predictions', type=int, default=10)
+    parser.add_argument('--dropout', type=float, default=0.3)
+    parser.add_argument('--verbose', action='store_true', default=False)
 
 
     config = parser.parse_args()
@@ -67,6 +72,7 @@ if __name__ == '__main__':
     len_test_dict, len_anomaly_dict, len_ratio_dict = {}, {}, {}
     prec_dict, rec_dict, f1_dict, auc_dict, best_f1_dict = {}, {}, {}, {}, {}
     prec_adj_dict, rec_adj_dict, f1_adj_dict = {}, {}, {}
+    time_dict = {}
 
     
     for channel in machine_names:
@@ -86,7 +92,10 @@ if __name__ == '__main__':
         len_ratio_dict.update({channel: anomaly_ratio})
 
         print(f"start detection for channel {channel} ..")
-        anomaly_scores = detector.calculate_anomaly_scores(ts_test, channel)
+        start_time = time.time()
+        anomaly_scores = detector.calculate_anomaly_scores(ts = ts_test, channel_id = channel, contamination = anomaly_ratio)
+        end_time = time.time()
+        elapsed_time = round(end_time - start_time, 3)
         prec, rec, f1, auc, prec_adj, rec_adj, f1_adj,  best_f1 = detector.evaluate(ground_truth, anomaly_scores, anomaly_ratio)
 
         prec_dict.update({channel: prec})
@@ -94,6 +103,8 @@ if __name__ == '__main__':
         f1_dict.update({channel: f1})
         auc_dict.update({channel: auc})
         best_f1_dict.update({channel: best_f1})
+        
+        time_dict.update({channel: elapsed_time})
 
         prec_adj_dict.update({channel: prec_adj})
         rec_adj_dict.update({channel: rec_adj})
@@ -111,6 +122,7 @@ if __name__ == '__main__':
         "F1(w. Adjustment)": f1_adj_dict,
         "Best_F1_Score": best_f1_dict,
         "AUC": auc_dict,
+        'Detection_Time(s)': time_dict
     })
     
     smd_metrics.insert(0, "Dataset", smd_metrics.index)

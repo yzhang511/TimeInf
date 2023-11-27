@@ -6,6 +6,7 @@ from tqdm import tqdm, trange
 import matplotlib.pyplot as plt
 import detectors
 import os
+import time
 import argparse
 
 def parse_int_list(s):
@@ -27,16 +28,20 @@ if __name__ == '__main__':
     parser.add_argument('--output_c', type=int, default=38)
     parser.add_argument('--batch_size', type=int, default=256)
     parser.add_argument('--pretrained_model', type=str, default=None)
-    parser.add_argument('--dataset', type=str, default='SMAP')
+    parser.add_argument('--dataset', type=str, default='SMD')
     parser.add_argument('--mode', type=str, default='train', choices=['train', 'test'])
     parser.add_argument('--data_path', type=str, default='../data_processed/SMAP')
     parser.add_argument('--model_save_path', type=str, default='../Anomaly_Transformer/checkpoints')
     parser.add_argument('--result_path', type=str, default='./results/')
-    parser.add_argument('--anormly_ratio', type=float, default=4.00)
+    parser.add_argument('--anomaly_ratio', type=float, default=0.1)
     parser.add_argument('--dimensions', type=parse_int_list, default = None,
                         help='A comma-separated list of dimensions (e.g., "1,2,3")')
+    parser.add_argument('--seed', type=int, default=42)
     parser.add_argument('--detector_type', type=str, required=True, default='InfluenceFunctionDetector',
                     help='Type of the detector to use')
+    parser.add_argument('--lstm_n_predictions', type=int, default=10)
+    parser.add_argument('--dropout', type=float, default=0.3)
+    parser.add_argument('--verbose', action='store_true', default=False)
 
 
     config = parser.parse_args()
@@ -67,11 +72,20 @@ if __name__ == '__main__':
     len_test_dict, len_anomaly_dict, len_ratio_dict = {}, {}, {}
     prec_dict, rec_dict, f1_dict, auc_dict, best_f1_dict = {}, {}, {}, {}, {}
     prec_adj_dict, rec_adj_dict, f1_adj_dict = {}, {}, {}
+    time_dict = {}
+
 
     
-    for channel in df .chan_id:
+    for channel in df.chan_id:
 
-        ts_test = np.load(data_path/"test"/f"{channel}.npy").T[config.dimensions[0]]
+        if config.dimensions is not None:
+            ts_test = np.load(data_path/"test"/f"{channel}.npy")[:,config.dimensions]
+        else:
+            ts_test = np.load(data_path/"test"/f"{channel}.npy")
+
+        # import ipdb
+        # ipdb.set_trace()
+
         seq_len = len(ts_test)
         anomaly_seqs = df.loc[df.chan_id == channel].anomaly_sequences.to_numpy().item()
         anomaly_seqs = re.findall(r'\d+', anomaly_seqs)
@@ -79,8 +93,8 @@ if __name__ == '__main__':
         for i in list(range(0, len(anomaly_seqs), 2)):
             anomaly_intervals.append(anomaly_seqs[i:i+2])
         anomaly_intervals = np.array(anomaly_intervals).astype(int)
-        
-        ground_truth = np.zeros_like(ts_test)
+
+        ground_truth = np.zeros(ts_test.shape[0])
         for anomaly_points in anomaly_intervals:
             ground_truth[anomaly_points[0]:anomaly_points[-1]] = 1.
 
@@ -93,7 +107,10 @@ if __name__ == '__main__':
         len_ratio_dict.update({channel: anomaly_ratio})
 
         print(f"start detection for channel {channel} ..")
-        anomaly_scores = detector.calculate_anomaly_scores(ts_test, channel)
+        start_time = time.time()
+        anomaly_scores = detector.calculate_anomaly_scores(ts = ts_test, channel_id = channel, contamination = min(anomaly_ratio,0.5)) # contamination has to be inthe range (0.0,0.5]
+        end_time = time.time()
+        elapsed_time = round(end_time - start_time, 3)
         prec, rec, f1, auc, prec_adj, rec_adj, f1_adj,  best_f1 = detector.evaluate(ground_truth, anomaly_scores, anomaly_ratio)
 
         prec_dict.update({channel: prec})
@@ -101,6 +118,8 @@ if __name__ == '__main__':
         f1_dict.update({channel: f1})
         auc_dict.update({channel: auc})
         best_f1_dict.update({channel: best_f1})
+
+        time_dict.update({channel: elapsed_time})
 
         prec_adj_dict.update({channel: prec_adj})
         rec_adj_dict.update({channel: rec_adj})
@@ -118,12 +137,13 @@ if __name__ == '__main__':
         "F1(w. Adjustment)": f1_adj_dict,
         "Best_F1_Score": best_f1_dict,
         "AUC": auc_dict,
+        'Detection_Time(s)': time_dict
     })
     
     smap_metrics.insert(0, "Dataset", smap_metrics.index)
     smap_metrics.reset_index(drop = True, inplace = True)
     
-    smap_metrics.to_csv(os.path.join(config.result_path, "SMAP"+"_"+config.detector_type+"_results.csv"))
+    smap_metrics.to_csv(os.path.join(config.result_path, config.dataset+"_"+config.detector_type+"_results.csv"))
 
 
 
