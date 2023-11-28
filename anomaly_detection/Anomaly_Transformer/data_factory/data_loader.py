@@ -84,7 +84,7 @@ class SMAPSegLoader(object):
         # data = np.load("./dataset/SMAP/SMAP_train.npy")
         for filename in os.listdir(data_path):
             if 'test.pkl' in filename:
-                channel_no = filename.split('_')[1]
+                channel_no = filename.split('_')[0]
                 if channel_id is None or channel_no == channel_id:
                     with open(data_path + '/' + filename,'rb') as f:
                         data = pickle.load(f)
@@ -93,7 +93,7 @@ class SMAPSegLoader(object):
                     else:
                         all_test_data.append(data)
                     all_test_channel.extend([channel_no]*len(data))
-                    with open(data_path + '/' + 'SMAP_' + channel_no + '_test_label.pkl','rb') as f:
+                    with open(data_path + '/' + channel_no + '_test_label.pkl','rb') as f:
                         labels = pickle.load(f)
                     all_test_labels.append(labels)
         all_test_data = np.concatenate(all_test_data,axis = 0)
@@ -141,7 +141,7 @@ class MSLSegLoader(object):
         all_test_labels =[]
         for filename in os.listdir(data_path):
             if 'test.pkl' in filename:
-                channel_no = filename.split('_')[1]
+                channel_no = filename.split('_')[0]
                 if channel_id is None or channel_no == channel_id:
                     with open(data_path + '/' + filename,'rb') as f:
                         data = pickle.load(f)
@@ -150,7 +150,7 @@ class MSLSegLoader(object):
                     else:
                         all_test_data.append(data)
                     all_test_channel.extend([channel_no]*len(data))
-                    with open(data_path + '/' + 'MSL_' + channel_no + '_test_label.pkl','rb') as f:
+                    with open(data_path + '/' + channel_no + '_test_label.pkl','rb') as f:
                         labels = pickle.load(f)
                     all_test_labels.append(labels)
         all_test_data = np.concatenate(all_test_data,axis = 0)

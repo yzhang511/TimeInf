@@ -39,8 +39,13 @@ if __name__ == '__main__':
     parser.add_argument('--seed', type=int, default=42)
     parser.add_argument('--detector_type', type=str, required=True, default='InfluenceFunctionDetector',
                     help='Type of the detector to use')
+    # To Do: model-specific params
     parser.add_argument('--lstm_n_predictions', type=int, default=10)
     parser.add_argument('--dropout', type=float, default=0.3)
+    parser.add_argument('--e_layers', type=int, default=3)
+    parser.add_argument('--n_heads', type=int, default=8)
+    parser.add_argument('--d_model', type=int, default=512)
+    parser.add_argument('--d_ff', type=int, default=512)
     parser.add_argument('--verbose', action='store_true', default=False)
 
 
