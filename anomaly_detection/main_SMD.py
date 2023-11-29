@@ -43,6 +43,10 @@ if __name__ == '__main__':
                     help='Type of the detector to use')
     parser.add_argument('--lstm_n_predictions', type=int, default=10)
     parser.add_argument('--dropout', type=float, default=0.3)
+    parser.add_argument('--e_layers', type=int, default=3)
+    parser.add_argument('--n_heads', type=int, default=8)
+    parser.add_argument('--d_model', type=int, default=512)
+    parser.add_argument('--d_ff', type=int, default=512)
     parser.add_argument('--verbose', action='store_true', default=False)
 
 
