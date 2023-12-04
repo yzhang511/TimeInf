@@ -33,12 +33,13 @@ if __name__ == '__main__':
     parser.add_argument('--data_path', type=str, default='../data_processed/SMAP')
     parser.add_argument('--model_save_path', type=str, default='../Anomaly_Transformer/checkpoints')
     parser.add_argument('--result_path', type=str, default='./results/')
-    parser.add_argument('--anomaly_ratio', type=float, default=0.1)
     parser.add_argument('--dimensions', type=parse_int_list, default = None,
                         help='A comma-separated list of dimensions (e.g., "1,2,3")')
     parser.add_argument('--seed', type=int, default=42)
     parser.add_argument('--detector_type', type=str, required=True, default='InfluenceFunctionDetector',
                     help='Type of the detector to use')
+    parser.add_argument('--use_anomaly_ratio', action='store_true', default=False,
+                    help='Whether the true anomaly ratio is used for detection or not.')
     # To Do: model-specific params
     parser.add_argument('--lstm_n_predictions', type=int, default=10)
     parser.add_argument('--dropout', type=float, default=0.3)
@@ -74,7 +75,7 @@ if __name__ == '__main__':
     df = test_df.loc[test_df.spacecraft ==  config.dataset]
     df = df .loc[df .chan_id != "P-2"]
 
-    len_test_dict, len_anomaly_dict, len_ratio_dict = {}, {}, {}
+    len_test_dict, len_anomaly_dict, len_ratio_dict, len_detected_ratio_dict = {}, {}, {}, {}
     prec_dict, rec_dict, f1_dict, auc_dict, best_f1_dict = {}, {}, {}, {}, {}
     prec_adj_dict, rec_adj_dict, f1_adj_dict = {}, {}, {}
     time_dict = {}
@@ -114,10 +115,15 @@ if __name__ == '__main__':
         print(f"start detection for channel {channel} ..")
         start_time = time.time()
         anomaly_scores = detector.calculate_anomaly_scores(ts = ts_test, channel_id = channel, contamination = min(anomaly_ratio,0.5)) # contamination has to be inthe range (0.0,0.5]
+        detected_anomaly_ratio = detector.auto_anomaly_detection(anomaly_scores)
         end_time = time.time()
         elapsed_time = round(end_time - start_time, 3)
-        prec, rec, f1, auc, prec_adj, rec_adj, f1_adj,  best_f1 = detector.evaluate(ground_truth, anomaly_scores, anomaly_ratio)
+        if config.use_anomaly_ratio:
+            prec, rec, f1, auc, prec_adj, rec_adj, f1_adj,  best_f1 = detector.evaluate(ground_truth, anomaly_scores, anomaly_ratio) 
+        else:
+            prec, rec, f1, auc, prec_adj, rec_adj, f1_adj,  best_f1 = detector.evaluate(ground_truth, anomaly_scores, detected_anomaly_ratio) 
 
+        len_detected_ratio_dict.update({channel:detected_anomaly_ratio})
         prec_dict.update({channel: prec})
         rec_dict.update({channel: rec})
         f1_dict.update({channel: f1})
@@ -133,7 +139,8 @@ if __name__ == '__main__':
     smap_metrics = pd.DataFrame({
         "Num_of_Test": len_test_dict,
         "Len_of_Anomaly": len_anomaly_dict,
-        "Anomaly_Ratio": len_ratio_dict,
+        "True_Anomaly_Ratio": len_ratio_dict,
+        "Predicted_Anomaly_Ratio":len_detected_ratio_dict,
         "Precision(w.o. Adjustment)": prec_dict,
         "Recall(w.o. Adjustment)": rec_dict,
         "F1(w.o. Adjustment)": f1_dict,
@@ -142,7 +149,7 @@ if __name__ == '__main__':
         "F1(w. Adjustment)": f1_adj_dict,
         "Best_F1_Score": best_f1_dict,
         "AUC": auc_dict,
-        'Detection_Time(s)': time_dict
+        'Elapsed Time(s)': time_dict
     })
     
     smap_metrics.insert(0, "Dataset", smap_metrics.index)
