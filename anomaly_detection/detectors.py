@@ -2,13 +2,15 @@ from time_series_influences.utils import split_time_series, match_train_time_blo
 from time_series_influences.influence_functions import compute_loo_linear_approx
 from time_series_influences.anomaly_detection import scale_influence_functions, eval_anomaly_detector, eval_anomaly_detector_all_thresholds
 from sklearn.linear_model import LinearRegression, Ridge
+from sklearn.ensemble import IsolationForest
+from sklearn.cluster import KMeans, DBSCAN
+from sklearn.preprocessing import MinMaxScaler
+from tqdm import tqdm
 import periodicity_detection as pyd
 import matplotlib.pyplot as plt
-from sklearn.ensemble import IsolationForest
-from tqdm import tqdm
-from torch.backends import cudnn
 import os
 import numpy as np
+from torch.backends import cudnn
 from Anomaly_Transformer.solver import Solver as AnomTransSolver
 from LSTM.solver import Solver as LSTMSolver
 from pmdarima import auto_arima
@@ -26,11 +28,30 @@ class BaseDetector(object):
     def calculate_anomaly_scores(self, *args, **kwargs):
         pass
 
-    def evaluate(self, ground_truth, anomaly_scores, anomaly_ratio):
-        detected_outliers = anomaly_scores > np.quantile(anomaly_scores, 1-anomaly_ratio)
+    def auto_anomaly_detection(self, anomaly_scores):
+    
+
+        kmeans = KMeans(n_clusters=2, random_state=0).fit(anomaly_scores.reshape(-1, 1))
+        guess_index=np.where(kmeans.labels_ == np.argmax(kmeans.cluster_centers_))[0]
+
+        # Count data points in each cluster
+        # cluster_counts = np.bincount(labels)
+
+        # # Find the ratio of the minority cluster
+        # anomaly_ratio = np.min(cluster_counts) / len(anomaly_scores)
+        anomaly_ratio = len(guess_index) / len(anomaly_scores)
+
+        return anomaly_ratio
+
+    def evaluate(self, ground_truth, anomaly_scores, anomaly_ratio = None):
+        if anomaly_ratio is None:
+            anomaly_ratio = self.auto_anomaly_detection(anomaly_scores)
+        thres = np.quantile(anomaly_scores, 1-anomaly_ratio)
+        detected_outliers = anomaly_scores > thres
+        print('Threshold:{:.2f}'.format(thres))
         
         print("eval w/o point adjustment:")
-        prec, rec, f1, auc = eval_anomaly_detector(ground_truth[:len(detected_outliers)], detected_outliers, anomaly_scores) # be careful! truncate the data by default
+        prec, rec, f1, auc = eval_anomaly_detector(ground_truth[:len(detected_outliers)], detected_outliers, anomaly_scores)
         print("eval with point adjustment:")
         prec_adj, rec_adj, f1_adj, _ = eval_anomaly_detector(ground_truth[:len(detected_outliers)], detected_outliers, anomaly_scores, adjust_detection=True)
 
@@ -57,7 +78,6 @@ class ARIMADetector(BaseDetector):
         self.random_seed = config.seed
 
     def calculate_anomaly_scores(self, ts, *args, **kwargs):
-        # TO DO: check the parameters & multivariate models
         ts = ts.reshape(-1)
         model = auto_arima(ts, max_p=10, max_q=10, 
                    seasonal=True, trace=False,
@@ -130,16 +150,20 @@ class AnomalyTransformerDetector(BaseDetector):
     def __init__(self, config):
 
         super().__init__()
-        cudnn.benchmark = True
         if (not os.path.exists(config.model_save_path)):
             os.makedirs(config.model_save_path)
-        self.detector = AnomTransSolver(vars(config))
-        if not os.path.exists(os.path.join(str(self.detector.model_save_path), str(self.detector.dataset) + '_checkpoint.pth')):
-           print(f'No pretrained model found for {self.detector.dataset}! Start Training ...')
-           self.detector.train()
+        # self.detector = AnomTransSolver(vars(config))
+        # if not os.path.exists(os.path.join(str(self.detector.model_save_path), str(self.detector.dataset) + '_checkpoint.pth')):
+        #    print(f'No pretrained model found for {self.detector.dataset}! Start Training ...')
+        #    self.detector.train()
+        self.config = config
 
 
     def calculate_anomaly_scores(self, channel_id, *args, **kwargs):
-        anomaly_scores = self.detector.test(channel_id)
+        self.config.channel_id = channel_id
+        cudnn.benchmark = True
+        detector = AnomTransSolver(vars(self.config))
+        detector.train()
+        anomaly_scores = detector.test(channel_id)
         return anomaly_scores
         
