@@ -12,7 +12,68 @@ import pandas as pd
 from sklearn.preprocessing import StandardScaler
 import pickle
 from pathlib import Path
+import json
 
+
+class SWATSegLoader(object):
+    def __init__(self, data_path, win_size, step, mode="train"):
+        self.mode = mode
+        self.step = step
+        self.win_size = win_size
+        self.scaler = StandardScaler()
+        # data = pd.read_csv(data_path + '/train.csv')
+        data = pd.read_excel(data_path + '/SWaT_Dataset_Attack_v0.xlsx')
+        data = data.drop(0)
+        data["Unnamed: 52"] = data["Unnamed: 52"].apply(lambda x: 0 if x=="Normal" else 1)
+        self.test_labels = data.values[:, 52:]
+ 
+        data = data.iloc[:, 1:52]
+        data = data.astype(float)
+        data = data.values
+        data = np.nan_to_num(data)
+       
+        test_data = data
+        
+        self.scaler.fit(data)
+        data = self.scaler.transform(data)
+
+
+        self.test = self.scaler.transform(test_data)
+
+        self.train = data
+        self.val = self.test
+
+        
+
+        print("test:", self.test.shape)
+        print("train:", self.train.shape)
+
+    def __len__(self):
+        """
+        Number of images in the object dataset.
+        """
+        if self.mode == "train":
+            return (self.train.shape[0] - self.win_size) // self.step + 1
+        elif (self.mode == 'val'):
+            return (self.val.shape[0] - self.win_size) // self.step + 1
+        elif (self.mode == 'test'):
+            return (self.test.shape[0] - self.win_size) // self.step + 1
+        else:
+            return (self.test.shape[0] - self.win_size) // self.win_size + 1
+
+    def __getitem__(self, index):
+        index = index * self.step
+        if self.mode == "train":
+            return np.float32(self.train[index:index + self.win_size]), np.float32(self.test_labels[0:self.win_size])
+        elif (self.mode == 'val'):
+            return np.float32(self.val[index:index + self.win_size]), np.float32(self.test_labels[0:self.win_size])
+        elif (self.mode == 'test'):
+            return np.float32(self.test[index:index + self.win_size]), np.float32(
+                self.test_labels[index:index + self.win_size])
+        else:
+            return np.float32(self.test[
+                              index // self.step * self.win_size:index // self.step * self.win_size + self.win_size]), np.float32(
+                self.test_labels[index // self.step * self.win_size:index // self.step * self.win_size + self.win_size])
 
 
 class PSMSegLoader(object):
@@ -307,6 +368,76 @@ class UCRSegLoader(object):
                               index // self.step * self.win_size:index // self.step * self.win_size + self.win_size]), np.float32(
                 self.test_labels[index // self.step * self.win_size:index // self.step * self.win_size + self.win_size])
 
+class NABSegLoader(object):
+    def __init__(self, data_path, win_size, step, mode="train", dataset = None, channel = None):
+        self.mode = mode
+        self.step = step
+        self.win_size = win_size
+        self.scaler = StandardScaler()
+        data = pd.read_csv(f"{data_path}/{dataset}/{channel}.csv")
+        data = data["value"]
+        data = np.nan_to_num(data)
+        data = data.reshape(-1, 1)
+        
+        self.scaler.fit(data)
+        data = self.scaler.transform(data)
+        test_data = pd.read_csv(f"{data_path}/{dataset}/{channel}.csv")
+        
+        test_data["ground_truth"] = 0
+        test_data.set_index("timestamp",inplace = True)
+        
+        label_file = "./data_processed/NAB/labels/combined_labels.json"
+        with open(label_file, 'r') as file:
+            label_df = json.load(file)
+            
+        anomaly_seqs = label_df.get(f"{dataset}/{channel}.csv")
+        for anom in anomaly_seqs:
+            test_data.loc[anom, "ground_truth"]=1.
+        
+        ground_truth = test_data["ground_truth"].to_numpy()
+        test_data.reset_index(inplace = True)
+        test_data = test_data.drop(columns = ["ground_truth","timestamp"])
+        test_data = test_data.to_numpy()
+        
+ 
+
+        self.test = self.scaler.transform(test_data)
+
+        self.train = data
+        self.val = self.test
+
+        self.test_labels = ground_truth
+
+        print("test:", self.test.shape)
+        print("train:", self.train.shape)
+
+    def __len__(self):
+        """
+        Number of images in the object dataset.
+        """
+        if self.mode == "train":
+            return (self.train.shape[0] - self.win_size) // self.step + 1
+        elif (self.mode == 'val'):
+            return (self.val.shape[0] - self.win_size) // self.step + 1
+        elif (self.mode == 'test'):
+            return (self.test.shape[0] - self.win_size) // self.step + 1
+        else:
+            return (self.test.shape[0] - self.win_size) // self.win_size + 1
+
+    def __getitem__(self, index):
+        index = index * self.step
+        if self.mode == "train":
+            return np.float32(self.train[index:index + self.win_size]), np.float32(self.test_labels[0:self.win_size])
+        elif (self.mode == 'val'):
+            return np.float32(self.val[index:index + self.win_size]), np.float32(self.test_labels[0:self.win_size])
+        elif (self.mode == 'test'):
+            return np.float32(self.test[index:index + self.win_size]), np.float32(
+                self.test_labels[index:index + self.win_size])
+        else:
+            return np.float32(self.test[
+                              index // self.step * self.win_size:index // self.step * self.win_size + self.win_size]), np.float32(
+                self.test_labels[index // self.step * self.win_size:index // self.step * self.win_size + self.win_size])
+
 
 def get_loader_segment(data_path, batch_size, win_size=100, step=100, mode='train', dataset='KDD', channel_id = None, dims = None):
     if (dataset == 'PSM'):
@@ -319,7 +450,11 @@ def get_loader_segment(data_path, batch_size, win_size=100, step=100, mode='trai
         dataset = SMAPSegLoader(data_path, win_size, 1, mode, channel_id, dims)
     elif ('MSL' in dataset):
         dataset = MSLSegLoader(data_path, win_size, 1, mode, channel_id, dims)
-
+    elif ('NAB' in data_path):
+        dataset = NABSegLoader(data_path, win_size, 1, mode, dataset, channel_id)
+    elif ('SWAT' in data_path):
+        dataset = SWATSegLoader(data_path, win_size, 1, mode)
+    
     shuffle = False
     if mode == 'train':
         shuffle = True

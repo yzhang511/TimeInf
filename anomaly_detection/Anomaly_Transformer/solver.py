@@ -79,15 +79,18 @@ class Solver(object):
         self.train_loader = get_loader_segment(self.data_path, batch_size=self.batch_size, win_size=self.win_size,
                                                mode='train',
                                                dataset=self.dataset,
-                                               dims = self.dimensions)
+                                               dims = self.dimensions,
+                                              channel_id = self.channel_id)
         self.vali_loader = get_loader_segment(self.data_path, batch_size=self.batch_size, win_size=self.win_size,
                                               mode='val',
                                               dataset=self.dataset,
-                                              dims = self.dimensions)
+                                              dims = self.dimensions,
+                                             channel_id = self.channel_id)
         self.test_loader = get_loader_segment(self.data_path, batch_size=self.batch_size, win_size=self.win_size,
                                               mode='test',
                                               dataset=self.dataset,
-                                              dims = self.dimensions)
+                                              dims = self.dimensions,
+                                             channel_id = self.channel_id)
 
         self.build_model()
         self.device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
@@ -157,6 +160,7 @@ class Solver(object):
 
             epoch_time = time.time()
             self.model.train()
+
             for i, (input_data, labels) in enumerate(self.train_loader):
 
                 self.optimizer.zero_grad()
@@ -273,7 +277,8 @@ class Solver(object):
         sep_channel_energy = {}
         sep_channel_data = {}
         test_labels = []
-        for i, (input_data, labels, channels) in enumerate(self.thre_loader):
+#         for i, (input_data, labels, channels) in enumerate(self.thre_loader):
+        for i, (input_data, labels) in enumerate(self.thre_loader):
             input = input_data.float().to(self.device)
             data = input.view((input.size(0)*input.size(1),input.size(2)))
             output, series, prior, _ = self.model(input)
@@ -305,13 +310,13 @@ class Solver(object):
             cri = cri.detach().cpu().numpy()
             attens_energy.append(cri)
             test_labels.append(labels)
-            channels = np.concatenate(channels,axis = 0)
+#             channels = np.concatenate(channels,axis = 0)
             cri_all = cri.reshape(-1)
             data = data.detach().cpu().numpy()
-            for i in range(len(channels)):
-                channel = channels[i]
-                sep_channel_energy[channel] = sep_channel_energy.get(channel,[]) + [cri_all[i]]
-                sep_channel_data[channel] = sep_channel_data.get(channel,[]) + [data[i]]
+#             for i in range(len(channels)):
+#                 channel = channels[i]
+#                 sep_channel_energy[channel] = sep_channel_energy.get(channel,[]) + [cri_all[i]]
+#                 sep_channel_data[channel] = sep_channel_data.get(channel,[]) + [data[i]]
 
         attens_energy = np.concatenate(attens_energy, axis=0).reshape(-1)
         test_energy = np.array(attens_energy)
