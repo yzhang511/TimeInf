@@ -159,7 +159,21 @@ if __name__ == '__main__':
     psm_metrics.insert(0, "Dataset", psm_metrics.index)
     psm_metrics.reset_index(drop = True, inplace = True)
     
-    psm_metrics.to_csv(os.path.join(config.result_path, config.dataset+"_"+config.detector_type+"_results.csv"))
+    if config.detector_type == "NonparametricInfluenceFunctionDetector":
+        save_path = os.path.join(
+            config.result_path, 
+            config.dataset+"_"+config.detector_type+"_"+config.learner+"_results.csv"
+        )
+    elif config.detector_type == "BlackBoxInfluenceFunctionDetector":
+        save_path = os.path.join(
+            config.result_path,
+            config.dataset+"_"+config.detector_type+"_"+config.black_box_model+"_results.csv"
+        )
+    else:
+        save_path = os.path.join(
+            config.result_path, config.dataset+"_"+config.detector_type+"_results.csv"
+        )
+    psm_metrics.to_csv(save_path)
     
     
     anom_df=pd.DataFrame()

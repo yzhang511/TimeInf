@@ -170,8 +170,22 @@ if __name__ == '__main__':
     
     smap_metrics.insert(0, "Dataset", smap_metrics.index)
     smap_metrics.reset_index(drop = True, inplace = True)
-    
-    smap_metrics.to_csv(os.path.join(config.result_path, config.dataset+"_"+config.detector_type+"_results.csv"))
+
+    if config.detector_type == "NonparametricInfluenceFunctionDetector":
+        save_path = os.path.join(
+            config.result_path, 
+            config.dataset+"_"+config.detector_type+"_"+config.learner+"_results.csv"
+        )
+    elif config.detector_type == "BlackBoxInfluenceFunctionDetector":
+        save_path = os.path.join(
+            config.result_path,
+            config.dataset+"_"+config.detector_type+"_"+config.black_box_model+"_results.csv"
+        )
+    else:
+        save_path = os.path.join(
+            config.result_path, config.dataset+"_"+config.detector_type+"_results.csv"
+        )
+    smap_metrics.to_csv(save_path)
 
 
 
