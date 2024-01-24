@@ -59,6 +59,14 @@ if __name__ == '__main__':
                                  'KNN', 'SVR'])
     parser.add_argument('--loss_function', type=str, default='mean_squared_error')
 
+    # params for black box influences
+    parser.add_argument('--black_box_model', type=str, default='LSTM',
+                        choices=['LSTM', 'RNN'])
+    parser.add_argument('--device', type=str, default='cpu')
+    parser.add_argument('--weight_decay', type=float, default=1e-4)
+    parser.add_argument('--n_layers', type=int, default=1)
+    parser.add_argument('--hidden_size', type=int, default=8)
+
 
     config = parser.parse_args()
 

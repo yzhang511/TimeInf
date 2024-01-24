@@ -20,6 +20,13 @@ from Anomaly_Transformer.solver import Solver as AnomTransSolver
 from LSTM.solver import Solver as LSTMSolver
 from pmdarima import auto_arima
 
+import torch
+import torch.nn.functional as F
+import torch.optim as optim
+import torch.utils.data as data
+import torch.nn as nn
+from torch_influence import BaseObjective, CGInfluenceModule
+torch.set_default_dtype(torch.double)
 
 
 def str2bool(v):
@@ -206,6 +213,98 @@ class NonparametricInfluenceFunctionDetector(BaseDetector):
         return anomaly_scores
 
 
+class BlackBoxInfluenceFunctionDetector(BaseDetector):
+
+    def __init__(self, config):
+        super().__init__()
+        self.block_length = config.win_size
+        self.black_box_model = config.black_box_model
+        self.device = config.device
+        self.lr = config.lr
+        self.n_epochs = config.num_epochs
+        self.weight_decay = config.weight_decay
+        self.batch_size = config.batch_size
+        self.n_layers = config.n_layers
+        self.hidden_size = config.hidden_size
+
+    def calculate_anomaly_scores(self, ts, *args, **kwargs):
+        print(f"block length is {self.block_length} time points.")
+
+        if len(ts.shape) > 1:
+            seq_len, n_dim = ts.shape
+            if n_dim > 1:
+                raise Exception("Sorry, black-box models for multivariate data is still in progress.")
+            ts = ts.squeeze()
+            
+        if self.device == "gpu":
+            DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        else:
+            DEVICE = torch.device("cpu")
+        print(DEVICE)
+
+        X_train, Y_train = create_dataset(ts, block_length=self.block_length, device=DEVICE)
+        X_train, Y_train = X_train[:,:,None], Y_train.squeeze()
+        
+        matched_block_idxs = match_train_time_block_index(ts, X_train)
+
+        model = Forecaster(
+            model_type=self.black_box_model, 
+            hidden_size=self.hidden_size, 
+            n_layers=self.n_layers
+        ).to(DEVICE)
+        
+        optimizer = optim.Adam(model.parameters(), lr=self.lr, weight_decay=self.weight_decay)
+        loss_fn = nn.MSELoss()
+        loader = data.DataLoader(
+            data.TensorDataset(X_train, Y_train), shuffle=True, batch_size=self.batch_size
+        )
+
+        # model training
+        for epoch in range(self.n_epochs):
+            model.train()
+            for X_batch, Y_batch in loader:
+                Y_pred = model(X_batch)
+                loss = loss_fn(Y_pred, Y_batch)
+                optimizer.zero_grad()
+                loss.backward()
+                optimizer.step()
+                
+            if epoch % 100 != 0:
+                continue
+                
+            model.eval()
+            with torch.no_grad():
+                Y_pred = model(X_train)
+                train_rmse = np.sqrt(loss_fn(Y_pred, Y_train).cpu().numpy())
+            print("Epoch %d: train RMSE %.4f" % (epoch, train_rmse))
+        
+        # -- influence functions
+        train_set = data.TensorDataset(X_train, Y_train)
+        
+        module = CGInfluenceModule(
+            model=model,
+            objective=TimeSeriesObjective(),
+            train_loader=data.DataLoader(train_set, batch_size=self.batch_size),
+            test_loader=data.DataLoader(train_set, batch_size=self.batch_size),
+            device=DEVICE,
+            damp=0.001,
+            atol=1e-8,
+            maxiter=self.n_epochs,
+        )
+
+        all_train_idxs = list(range(X_train.shape[0]))
+        time_block_loos = module.influences(train_idxs=all_train_idxs, test_idxs=all_train_idxs)
+        
+        # compute IF for each time point
+        time_point_loos = []
+        for i in range(len(matched_block_idxs)):
+            time_point_loos.append((time_block_loos[matched_block_idxs[i]]).mean())
+        time_point_loos = np.array(time_point_loos)
+        
+        anomaly_scores = scale_influence_functions(time_point_loos, self.block_length)
+        return anomaly_scores
+
+
 class AnomalyTransformerDetector(BaseDetector):
 
     def __init__(self, config):
@@ -227,4 +326,60 @@ class AnomalyTransformerDetector(BaseDetector):
         detector.train()
         anomaly_scores = detector.test(channel_id)
         return anomaly_scores
+
+
+# helper functions for black-box influences
+
+def create_dataset(dataset, block_length, device=None):
+    X, Y = [], []
+    for i in range(len(dataset)-block_length):
+        x = dataset[i:i+block_length]
+        y = dataset[i+1:i+block_length+1]
+        X.append(x)
+        Y.append(y)
+    if device is not None:
+        return torch.tensor(X).to(device), torch.tensor(Y).to(device)
+    else:
+        return np.array(X), np.array(Y)
+
+class Forecaster(nn.Module):
+    def __init__(self, model_type, hidden_size, n_layers):
+        super().__init__()
+        if model_type == "LSTM":
+            self.lstm = nn.LSTM(
+                input_size=1, 
+                hidden_size=hidden_size, 
+                num_layers=n_layers, 
+                batch_first=True
+            )
+        else:
+            self.rnn = nn.RNN(
+                input_size=1, 
+                hidden_size=hidden_size, 
+                num_layers=n_layers, 
+                batch_first=True
+            ) 
+        self.linear = nn.Linear(hidden_size, 1)
+        self.flatten = nn.Flatten(start_dim=-2)
+        
+    def forward(self, x):
+        x, _ = self.lstm(x)
+        x = self.linear(x)
+        x = self.flatten(x)
+        return x
+
+class TimeSeriesObjective(BaseObjective):
+
+    def train_outputs(self, model, batch):
+        return model(batch[0])
+
+    def train_loss_on_outputs(self, outputs, batch):
+        return F.mse_loss(outputs, batch[1])
+
+    def train_regularization(self, params):
+        return L2_WEIGHT * torch.square(params.norm())
+
+    def test_loss(self, model, params, batch):
+        outputs = model(batch[0])
+        return F.mse_loss(outputs, batch[1])
         

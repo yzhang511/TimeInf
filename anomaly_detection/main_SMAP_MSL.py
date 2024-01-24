@@ -48,6 +48,7 @@ if __name__ == '__main__':
     parser.add_argument('--d_model', type=int, default=512)
     parser.add_argument('--d_ff', type=int, default=512)
     parser.add_argument('--verbose', action='store_true', default=False)
+    
     # params for non-parametric influences
     parser.add_argument('--n_subsets', type=int, default=1000)
     parser.add_argument('--subset_frac', type=float, default=0.7)
@@ -55,7 +56,15 @@ if __name__ == '__main__':
                         choices=['GradientBoosting', 'RandomForest', 'LinearRegression',
                                  'KNN', 'SVR'])
     parser.add_argument('--loss_function', type=str, default='mean_squared_error')
-
+    
+    # params for black box influences
+    parser.add_argument('--black_box_model', type=str, default='LSTM',
+                        choices=['LSTM', 'RNN'])
+    parser.add_argument('--device', type=str, default='cpu')
+    parser.add_argument('--weight_decay', type=float, default=1e-4)
+    parser.add_argument('--n_layers', type=int, default=1)
+    parser.add_argument('--hidden_size', type=int, default=8)
+    
 
     config = parser.parse_args()
 
