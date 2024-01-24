@@ -269,8 +269,8 @@ class BlackBoxInfluenceFunctionDetector(BaseDetector):
                 loss.backward()
                 optimizer.step()
                 
-            if epoch % 100 != 0:
-                continue
+            # if epoch % 10 != 0:
+            #     continue
                 
             model.eval()
             with torch.no_grad():
