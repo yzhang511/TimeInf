@@ -170,37 +170,31 @@ class NonparametricInfluenceFunctionDetector(BaseDetector):
             seq_len, n_dim = ts.shape
             X_train = X_train.reshape((-1, self.block_length*n_dim))
 
-        if config.loss_function == "mean_squared_error":
+        if self.loss_function == "mean_squared_error":
             loss_function = mean_squared_error
 
-        if config.learner == "GradientBoosting":
+        if self.learner == "GradientBoosting":
             learner = GradientBoostingRegressor()
-        elif config.learner == "LinearRegression":
+        elif self.learner == "LinearRegression":
             learner = LinearRegression()
-        elif config.learner == "RandomForest":
+        elif self.learner == "RandomForest":
             learner = RandomForestRegressor()
-        elif config.learner == "KNN":
+        elif self.learner == "KNN":
             learner = KNeighborsRegressor()
-        elif config.learner == "SVR":
+        elif self.learner == "SVR":
             learner = SVR()
 
-        subset_size = int(config.subset_frac * len(ts))
+        subset_size = int(self.subset_frac * len(ts))
             
-        # compute nonparametric IF
+        # compute nonparametric IF for each time block        
         time_block_loos = compute_nonparametric_influences(
             X_train, 
-            Y_train, 
-            config.n_subsets, 
+            Y_train.squeeze(), 
+            self.n_subsets, 
             subset_size, 
             learner, 
             loss_function
         )
-        
-        # compute IF for each time block
-        time_block_loos = []
-        for i in tqdm(range(len(X_train)), total=len(X_train), desc="Compute LOO"):
-            time_block_loos.append(compute_loo_linear_approx(i, i, X_train, Y_train, X_train, Y_train, params))
-        time_block_loos = np.array(time_block_loos)
         
         # compute IF for each time point
         time_point_loos = []
