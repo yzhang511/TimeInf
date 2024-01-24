@@ -377,7 +377,7 @@ class TimeSeriesObjective(BaseObjective):
         return F.mse_loss(outputs, batch[1])
 
     def train_regularization(self, params):
-        return L2_WEIGHT * torch.square(params.norm())
+        return 1e-4 * torch.square(params.norm())
 
     def test_loss(self, model, params, batch):
         outputs = model(batch[0])
