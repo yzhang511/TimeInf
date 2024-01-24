@@ -1,10 +1,15 @@
 from time_series_influences.utils import split_time_series, match_train_time_block_index
 from time_series_influences.influence_functions import compute_loo_linear_approx
 from time_series_influences.anomaly_detection import scale_influence_functions, eval_anomaly_detector, eval_anomaly_detector_all_thresholds
+from time_series_influences.nonparametric_influences import compute_nonparametric_influences
 from sklearn.linear_model import LinearRegression, Ridge
 from sklearn.ensemble import IsolationForest
 from sklearn.cluster import KMeans, DBSCAN
 from sklearn.preprocessing import MinMaxScaler
+from sklearn.metrics import mean_squared_error
+from sklearn.ensemble import GradientBoostingRegressor, RandomForestRegressor
+from sklearn.neighbors import KNeighborsRegressor
+from sklearn.svm import SVR
 from tqdm import tqdm
 import periodicity_detection as pyd
 import matplotlib.pyplot as plt
@@ -128,6 +133,68 @@ class InfluenceFunctionDetector(BaseDetector):
         except:
             inv_hess = len(X_train) * np.linalg.pinv(X_train.T @ X_train)
         params = (beta, b, inv_hess)
+        
+        # compute IF for each time block
+        time_block_loos = []
+        for i in tqdm(range(len(X_train)), total=len(X_train), desc="Compute LOO"):
+            time_block_loos.append(compute_loo_linear_approx(i, i, X_train, Y_train, X_train, Y_train, params))
+        time_block_loos = np.array(time_block_loos)
+        
+        # compute IF for each time point
+        time_point_loos = []
+        for i in range(len(matched_block_idxs)):
+            time_point_loos.append((time_block_loos[matched_block_idxs[i]]).mean())
+        time_point_loos = np.array(time_point_loos)
+        
+        anomaly_scores = scale_influence_functions(time_point_loos, self.block_length)
+        return anomaly_scores
+
+
+class NonparametricInfluenceFunctionDetector(BaseDetector):
+
+    def __init__(self, config):
+        super().__init__()
+        self.block_length = config.win_size
+        self.learner = config.learner
+        self.loss_function = config.loss_function
+        self.n_subsets = config.n_subsets
+        self.subset_frac = config.subset_frac
+
+    def calculate_anomaly_scores(self, ts, *args, **kwargs):
+        print(f"block length is {self.block_length} time points.")
+        X_train, Y_train = split_time_series(ts, block_length=self.block_length)
+        
+        matched_block_idxs = match_train_time_block_index(ts, X_train)
+
+        if len(ts.shape) > 1:
+            seq_len, n_dim = ts.shape
+            X_train = X_train.reshape((-1, self.block_length*n_dim))
+
+        if config.loss_function == "mean_squared_error":
+            loss_function = mean_squared_error
+
+        if config.learner == "GradientBoosting":
+            learner = GradientBoostingRegressor()
+        elif config.learner == "LinearRegression":
+            learner = LinearRegression()
+        elif config.learner == "RandomForest":
+            learner = RandomForestRegressor()
+        elif config.learner == "KNN":
+            learner = KNeighborsRegressor()
+        elif config.learner == "SVR":
+            learner = SVR()
+
+        subset_size = int(config.subset_frac * len(ts))
+            
+        # compute nonparametric IF
+        time_block_loos = compute_nonparametric_influences(
+            X_train, 
+            Y_train, 
+            config.n_subsets, 
+            subset_size, 
+            learner, 
+            loss_function
+        )
         
         # compute IF for each time block
         time_block_loos = []

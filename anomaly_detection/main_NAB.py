@@ -50,6 +50,14 @@ if __name__ == '__main__':
     parser.add_argument('--d_model', type=int, default=512)
     parser.add_argument('--d_ff', type=int, default=512)
     parser.add_argument('--verbose', action='store_true', default=False)
+    
+    # params for non-parametric influences
+    parser.add_argument('--n_subsets', type=int, default=1000)
+    parser.add_argument('--subset_frac', type=float, default=0.7)
+    parser.add_argument('--learner', type=str, default='GradientBoosting',
+                        choices=['GradientBoosting', 'RandomForest', 'LinearRegression',
+                                 'KNN', 'SVR'])
+    parser.add_argument('--loss_function', type=str, default='mean_squared_error')
 
 
     config = parser.parse_args()
