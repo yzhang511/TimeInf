@@ -346,14 +346,14 @@ class Forecaster(nn.Module):
     def __init__(self, model_type, hidden_size, n_layers):
         super().__init__()
         if model_type == "LSTM":
-            self.lstm = nn.LSTM(
+            self.forecaster = nn.LSTM(
                 input_size=1, 
                 hidden_size=hidden_size, 
                 num_layers=n_layers, 
                 batch_first=True
             )
         else:
-            self.rnn = nn.RNN(
+            self.forecaster  = nn.RNN(
                 input_size=1, 
                 hidden_size=hidden_size, 
                 num_layers=n_layers, 
@@ -363,7 +363,7 @@ class Forecaster(nn.Module):
         self.flatten = nn.Flatten(start_dim=-2)
         
     def forward(self, x):
-        x, _ = self.lstm(x)
+        x, _ = self.forecaster(x)
         x = self.linear(x)
         x = self.flatten(x)
         return x
