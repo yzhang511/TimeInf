@@ -1,4 +1,4 @@
-# TimeInf: Time Series Data Contribution via Influence Functions
+### TimeInf: Time Series Data Contribution via Influence Functions
 
 ```
 conda create --name timeinf
