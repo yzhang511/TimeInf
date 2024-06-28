@@ -1,7 +1,9 @@
+tqdm
 numpy
 pandas
 scikit-learn
 matplotlib
-periodicity_detection
 pmdarima
+torch
 torch-influence @ git+https://github.com/alstonlo/torch-influence.git
+transformers
