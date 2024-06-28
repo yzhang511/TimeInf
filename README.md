@@ -1,11 +1,9 @@
-# time series influence functions
+# TimeInf: Time Series Data Contribution via Influence Functions
 
-### Installation
-Create an environment and install this package and any other dependencies:
 ```
-conda create --name <ENVIRONMENT_NAME> 
-conda activate <ENVIRONMENT_NAME>
-git clone https://github.com/yzhang511/time-series-influence.git
-cd time-series-influence
+conda create --name timeinf
+conda activate timeinf
+git clone https://github.com/yzhang511/timeinf.git
+cd timeinf
 pip install -e .
 ```
