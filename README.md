@@ -16,7 +16,7 @@ pip install -e .
 
 ### Datasets
 
-
+Datasets for time series anomaly detection are available [here](https://drive.google.com/drive/folders/1VX2jmRdEvOM45U8ag62qL-qlVG0ieJ1A?usp=sharing). Please cite the original sources of the datasets.
 
 ### Models
 
