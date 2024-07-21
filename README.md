@@ -20,6 +20,6 @@ pip install -e .
 
 ### Models
 
-We provide example scripts for anomaly detection using TimeInf and other baselines in `anomaly_detection/main_SMAP_MSL.py`.
+Example scripts using TimeInf and other baselines for anomaly detection: `anomaly_detection/main_SMAP_MSL.py`.
 
-We provide example notebooks to demonstrate the application of linear, black-box, and non-parametric TimeInf in `demo`.
+Example notebooks for the application of linear, black-box, and non-parametric TimeInf: `demo`.
