@@ -1,5 +1,7 @@
 ### TimeInf: Time Series Data Contribution via Influence Functions
 
+We provide a codebase for [TimeInf: Time Series Data Contribution via Influence Functions](https://arxiv.org/abs/2407.15247). TimeInf is a data contribution estimation method for time-series datasets. TimeInf uses influence functions to attribute model predictions to individual time points while preserving temporal structures. Our extensive empirical results demonstrate that TimeInf outperforms state-of-the-art methods in identifying harmful anomalies and helpful time points for forecasting. Additionally, TimeInf offers intuitive and interpretable attributions of data values, allowing us to easily distinguish diverse anomaly patterns through visualizations.
+
 <p align="center">
     <img src=assets/figure.jpg />
 </p>
