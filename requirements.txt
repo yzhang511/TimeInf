@@ -9,3 +9,4 @@ torch-influence @ git+https://github.com/alstonlo/torch-influence.git
 transformers
 autograd
 pgmpy
+kronfluence
